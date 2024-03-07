@@ -15,7 +15,7 @@ def readyRead(c_sock, addr):
     except Exception as e:
         print(f"Exception: {e}")
     except KeyboardInterrupt:
-        print("정지됨")
+        print("stop") 
         
 def collect_data(data):
     global _ptr
@@ -27,6 +27,7 @@ def collect_data(data):
         if(data[i] == '$' and _ptr == 0):
             recv.append(data[i])
             _ptr += 1
+            
         elif(data[i] == '\n'):
             recv.append(data[i])
             analyze_data(recv)
@@ -35,17 +36,19 @@ def collect_data(data):
         else:
             recv.append(data[i])    
             _ptr += 1
+        #print(recv)
             
 def analyze_data(data):
     cdata = (''.join(data[0:9])).encode()
     crc_room = (''.join(data[9:13]))
     crc = crc16.crc16(cdata, 0, len(cdata))
+    print(data)
     if(f'{crc:x}' == crc_room.lower()):
         if(data[0] == "$" and data[1] == "C" and data[2] == "T" and data[3] == "L"):
             if(data[5] == "0"):
                 print("here")
-                m.write_data(0x58, 0x02, data[7])
-        
+                m.write_data(0x58, 0x02, data[7])    
+
 def sendData(c_sock):
     try:
         a = d.get_ina()
@@ -66,26 +69,43 @@ def sendData(c_sock):
 def createServer():
     print("waiting connection...")
     
-    s_sock.bind(('', 4321))
-    s_sock.listen(10)
-    while True:
-        c_sock, addr = s_sock.accept()
-        print(f"{addr} is connected")
-        newConnection = threading.Thread(target=readyRead, args=[c_sock, addr])
-        newConnection.start()
-        sd = threading.Timer(0.1, sendData, args=[c_sock])
-        sd.start()
-        
+    threading.Thread(target=input_thread, args=(m,), daemon=True).start()
+    try: 
+        s_sock.bind(('192.168.0.198',7777))
+        s_sock.listen(10)
+        while True:
+            try:
+                c_sock, addr = s_sock.accept()
+                print(f"{addr} is connected")
+                newConnection = threading.Thread(target=readyRead, args=[c_sock, addr])
+                newConnection.start()
+                sd = threading.Timer(0.1, sendData, args=[c_sock])
+                sd.start()
+            except Exception as e:
+                print(f"An error occurred while accepting a connection: {e}")
+    except Exception as e:
+        print(f"An error occurred while setting up the server: {e}")
+
+
+
+
 def input_thread(m):
     global mux_chan
     while True:
         try:
             new_chan = int(input("MUX Channel Number : "))
-            if new_chan > 3 or new_chan < 0:
+            if new_chan > 3 or new_chan <= 0:
                 print("Wrong Channel Number!")
             else:
                 mux_chan = new_chan
                 print(f"MUX channel {mux_chan} is selected!")
-                m.write_data(0x58, 0x02, mux_chan)
+                if mux_chan == 1:
+                    m.write_data(0x58, 0x02, 1)
+                if mux_chan == 2:
+                    m.write_data(0x58, 0x02, 2)
+                if mux_chan == 3:
+                    m.write_data(0x58, 0x02, 4)
         except ValueError:
             print("Please enter a valid integer.")
+        except Exception as e:
+            print(f"An error occurred in the input thread: {e}")
