@@ -36,6 +36,13 @@ def ltc4151():
         #     f'V4 : {calc_volt(servo_mot_4_volt)} VDC, {calc_curr(servo_mot_4_curr)} A /')
     except Exception as ex:
         print("ltc4151 error")
+        ltc_data = [99,99, 
+                    99,99,
+                    99,99,
+                    99,99,
+                    99,99,
+                    99,99]
+        d.set_ltc(ltc_data)
 
 
 def calc_volt(value):
