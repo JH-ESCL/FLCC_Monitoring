@@ -60,6 +60,7 @@ def analyze_data(data):
                 m.write_data(0x58, 0x02, data[7])
 
 def sendData():
+    rate = rospy.Rate(10)
     try:
         a = d.get_ina()
         b = d.get_ltc()
@@ -85,13 +86,12 @@ def sendData():
             csvwriter.writerow(packet_w_time.split(','))  # Include timestamp in CSV
         #print(packet)
         pub.publish(packet_w_time)
-        # You might want to adjust the rate of publishing
-        rospy.sleep(0.1)
-
+       
         crc = crc16.crc16(packet.encode(), 0, len(packet.encode()))
         packet = packet + f'{crc:x}' + "\r\n"
         c_sock.sendall(packet.encode())
 
+        rate.sleep()
         #threading.Timer(0.1, sendData).start()
 
 
@@ -113,7 +113,9 @@ def sendErrData(erraddr):
 def createServer():
     print("waiting connection...")
     threading.Thread(target=input_thread, args=(m,), daemon=True).start()
-    threading.Thread(target=plot_log, args=(), daemon=True).start()
+    sendData_thread = threading.Thread(target=sendData, args=())
+    sendData_thread.start()
+
     try:
         s_sock.bind(('', 4321))
         s_sock.listen(10)
@@ -155,11 +157,3 @@ def input_thread(m):
             print("Please enter a valid integer.")
         except Exception as e:
             print(f"An error occurred in the input thread: {e}")
-
-def plot_log():
-    while True:
-        try :
-            sendata = threading.Timer(0.1, sendData)
-            sendata.start()
-        except Exception as e:
-            print(f"An error occurred in the plot and log: {e}")
